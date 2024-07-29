@@ -14,9 +14,9 @@ load_dotenv()
 sender_email = os.getenv("sender_email")
 password_email = os.getenv("password_email")
 
-def send_email(subject, name, receiver_email, mails_sent_number, response):
+def send_email(subject, name, receiver_email, response):
     msg = EmailMessage()
-    msg["Subject"] = subject,
+    msg["Subject"] = subject
     msg["From"] = formataddr(("EL-FI HOMES", sender_email))
     msg["To"] = receiver_email
     msg["BCC"] = sender_email
@@ -29,7 +29,7 @@ def send_email(subject, name, receiver_email, mails_sent_number, response):
         f"""\
         Hi {name},
         We are excited to introduce our new product to you!
-        This is the {mails_sent_number} time we are reaching out to you.
+        We are reaching out to you because you showed interest in solar panels.
         {response_text}
 
         Best regards,
@@ -43,7 +43,7 @@ def send_email(subject, name, receiver_email, mails_sent_number, response):
       <body>
         <p>Hi {name},</p>
         <p>We are excited to introduce our new product to you!</p>
-        <p>This is the <strong>{mails_sent_number}</strong> time we are reaching out to you.</p>
+        <p>We are reaching out to you because you showed interest in solar panels.</p>
         <p>{response_text}</p>
         <p>Best regards,</p>
         <p>Your Company Name</p>
@@ -59,22 +59,23 @@ def send_email(subject, name, receiver_email, mails_sent_number, response):
         server.sendmail(sender_email, receiver_email, msg.as_string())
         print(f"Email sent to {receiver_email}")
 
-@app.route('/send-email', methods=['POST'])
+@app.route('/send-email', methods=['GET'])
 def api_send_email():
     data = request.get_json()
     name = data.get("name")
     receiver_email = data.get("receiver_email")
-    mails_sent_number = data.get("mails_sent_number")
+    
     response = data.get("response")
 
-    if not all([name, receiver_email, mails_sent_number, response]):
+
+    if not all([name, receiver_email, response]):
         return jsonify({"error": "Missing data"}), 400
 
     send_email(
         subject="Discover Our New Product!",
         name=name,
         receiver_email=receiver_email,
-        mails_sent_number=mails_sent_number,
+    
         response=response,
     )
     return jsonify({"message": "Email sent successfully"}), 200
