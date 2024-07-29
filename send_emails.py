@@ -59,7 +59,7 @@ def send_email(subject, name, receiver_email, response):
         server.sendmail(sender_email, receiver_email, msg.as_string())
         print(f"Email sent to {receiver_email}")
 
-@app.route('/send-email', methods=['GET'])
+@app.route('/send-email', methods=['POST'])
 def api_send_email():
     data = request.get_json()
     name = data.get("name")
