@@ -4,15 +4,17 @@ import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr
 from dotenv import load_dotenv
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  
 
 EMAIL_SERVER = "smtp.gmail.com"
 PORT = 587
 load_dotenv()
 
-sender_email = os.getenv("sender_email")
-password_email = os.getenv("password_email")
+sender_email = os.getenv("SENDER_EMAIL")
+password_email = os.getenv("PASSWORD_EMAIL")
 
 def send_email(subject, name, receiver_email, response):
     msg = EmailMessage()
@@ -64,9 +66,7 @@ def api_send_email():
     data = request.get_json()
     name = data.get("name")
     receiver_email = data.get("receiver_email")
-    
     response = data.get("response")
-
 
     if not all([name, receiver_email, response]):
         return jsonify({"error": "Missing data"}), 400
@@ -75,7 +75,6 @@ def api_send_email():
         subject="Discover Our New Product!",
         name=name,
         receiver_email=receiver_email,
-    
         response=response,
     )
     return jsonify({"message": "Email sent successfully"}), 200
