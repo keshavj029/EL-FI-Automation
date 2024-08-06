@@ -20,6 +20,10 @@ load_dotenv()
 sender_email = os.getenv("SENDER_EMAIL")
 password_email = os.getenv("PASSWORD_EMAIL")
 
+# Log the loaded environment variables for debugging
+logging.debug(f"SENDER_EMAIL: {sender_email}")
+logging.debug(f"PASSWORD_EMAIL: {password_email}")
+
 def send_email(subject, name, receiver_email, response):
     logging.info(f"Attempting to send email to {receiver_email}")
     msg = EmailMessage()
