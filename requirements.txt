@@ -1,6 +1,7 @@
 pandas
 python-dotenv
-Flask
+fastapi
+uvicorn
 gunicorn
 Flask-CORS
 
