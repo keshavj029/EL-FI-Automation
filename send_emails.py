@@ -1,19 +1,28 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import smtplib
 import logging
 from email.message import EmailMessage
 from email.utils import formataddr
 from dotenv import load_dotenv
-from flask_cors import CORS
 
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+app = FastAPI()
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
-EMAIL_SERVER = "smtp.gmail.com"
+EMAIL_SERVER = "smtp-mail.outlook.com"
 PORT = 587
 load_dotenv()
 
@@ -22,9 +31,14 @@ password_email = os.getenv("PASSWORD_EMAIL")
 
 # Log the loaded environment variables for debugging
 logging.debug(f"SENDER_EMAIL: {sender_email}")
-logging.debug(f"PASSWORD_EMAIL: {password_email}")
+# Logging password is generally not recommended
+# logging.debug(f"PASSWORD_EMAIL: {password_email}")
 
-def send_email(subject, name, receiver_email, response):
+if not all([sender_email, password_email]):
+    logging.error("Missing email credentials in environment variables")
+    raise RuntimeError("Email credentials not configured properly")
+
+def send_email(subject: str, name: str, receiver_email: str, response: str):
     logging.info(f"Attempting to send email to {receiver_email}")
     msg = EmailMessage()
     msg["Subject"] = subject
@@ -65,20 +79,20 @@ def send_email(subject, name, receiver_email, response):
     )
 
     try:
-        with smtplib.SMTP(EMAIL_SERVER, PORT, timeout=30) as server:
+        with smtplib.SMTP(EMAIL_SERVER, PORT, timeout=10) as server:
             server.starttls()
             server.login(sender_email, password_email)
             server.sendmail(sender_email, receiver_email, msg.as_string())
         logging.info(f"Email sent successfully to {receiver_email}")
-    except Exception as e:
+    except smtplib.SMTPException as e:
         logging.error(f"Failed to send email: {str(e)}", exc_info=True)
-        raise
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to send email")
 
-@app.route('/send-email', methods=['POST'])
-def api_send_email():
+@app.post('/send-email')
+async def api_send_email(request: Request):
     logging.info("Received request to /send-email")
     try:
-        data = request.get_json()
+        data = await request.json()
         logging.debug(f"Received data: {data}")
         
         name = data.get("name")
@@ -87,7 +101,7 @@ def api_send_email():
 
         if not all([name, receiver_email, response]):
             logging.warning("Missing data in request")
-            return jsonify({"error": "Missing data"}), 400
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing data")
 
         send_email(
             subject="Discover Our New Product!",
@@ -95,30 +109,31 @@ def api_send_email():
             receiver_email=receiver_email,
             response=response,
         )
-        return jsonify({"message": "Email sent successfully"}), 200
+        return JSONResponse(content={"message": "Email sent successfully"}, status_code=status.HTTP_200_OK)
+    except HTTPException as e:
+        raise e  # Reraise HTTP exceptions to preserve status code
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal Server Error")
 
-@app.route('/test-smtp', methods=['GET'])
-def test_smtp():
+@app.get('/test-smtp')
+async def test_smtp():
     logging.info("Testing SMTP connection")
     try:
-        with smtplib.SMTP(EMAIL_SERVER, PORT, timeout=30) as server:
+        with smtplib.SMTP(EMAIL_SERVER, PORT, timeout=10) as server:
             server.starttls()
             server.login(sender_email, password_email)
-        return "SMTP connection successful", 200
-    except Exception as e:
+        return JSONResponse(content="SMTP connection successful", status_code=status.HTTP_200_OK)
+    except smtplib.SMTPException as e:
         logging.error(f"SMTP connection failed: {str(e)}", exc_info=True)
-        return f"SMTP connection failed: {str(e)}", 500
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"SMTP connection failed: {str(e)}")
 
-@app.errorhandler(Exception)
-def handle_exception(e):
-    logging.error(f"Unhandled exception: {str(e)}", exc_info=True)
-    return jsonify({"error": "An unexpected error occurred"}), 500
+@app.exception_handler(Exception)
+async def handle_exception(request: Request, exc: Exception):
+    logging.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    return JSONResponse(content={"error": "An unexpected error occurred"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 if __name__ == '__main__':
-    logging.info("Starting Flask application")
-    if not all([sender_email, password_email]):
-        logging.error("Missing email credentials in environment variables")
-    app.run(debug=True)
+    import uvicorn
+    logging.info("Starting FastAPI application")
+    uvicorn.run(app, host="0.0.0.0", port=8000)
